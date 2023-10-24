@@ -80,70 +80,66 @@ class NoisyChannelSimulation:
             print(f"\n🕔 Total time taken: {time_elapsed} seconds") 
 
 
-    def simulate_selective_repeat(self):
-        time_unit = 1
-        time_elapsed = 0
-        number_of_packets = 10
+    def selective_repeat(self):
+        next_seq_num = 0
+        received_ack = set()
+        data = ["pck1", "pck2", "pck3", "pck4", "pck5", "pck6", "pck7", "pck8", "pck9", "pck10", "pck11"]
+        window_size = 5  # Adjust window size as needed
 
-        n = 3  # number of packets <= 2^(n - 1)
-        window_size = 2**(n - 1)
-        sent_buffer = [False] * (number_of_packets + 1)  # Initialize a buffer to track sent packets
-        received_buffer = [False] * (number_of_packets + 1)  # Initialize a buffer to track 
-        order_received = []
+        def send_packet(seq_num):
+            if seq_num < len(data):
+                print(f"Sender: Sending packet {seq_num} --> {data[seq_num]}")
 
-        current_sent = 0;
-        current_ack = 0;
+        while next_seq_num < len(data):
+            ack_range_start = next_seq_num
+            ack_range_end = min(next_seq_num + window_size, len(data))
 
+            # Send packets within the window
+            for i in range(next_seq_num, min(next_seq_num + window_size, len(data))):
+                send_packet(i)
 
-        while not all(received_buffer):
-            for i in range(window_size):
-                if current_sent <= number_of_packets:
-                    print(f" --> Sending packet: {current_sent}")
-                    time.sleep(0.2)
-                    time_elapsed += time_unit
-                    # set sent_buffer[current_sent] to True
-                    sent_buffer[current_sent] = True
-                    current_sent += 1
-                else:
-                    break;
-            
+            # Simulate receiving acknowledgments for the entire window
+            ack_received = [random.choice(['✅', '❌']) for _ in range(ack_range_start, ack_range_end)]
             print("\n")
-            for i in range(window_size):
-                if current_ack <= number_of_packets:
-                    if random.random() > self.packet_loss_prob:
-                        print(f"✅ ACK received for packet: {current_ack}")
-                        time.sleep(0.2)
-                        time_elapsed += time_unit
-                        received_buffer[current_ack] = True
-                        order_received.append(current_ack)
-                        received_buffer[current_ack] = True
-                        order_received.append(current_ack)
-                    else:
-                        print(f"❌ ACK lost for packet: {current_ack}")
-                        time.sleep(0.2)
-                        time_elapsed += time_unit
-                    current_ack += 1
-                else:
-                    break;
-            
-            sent_buffer = received_buffer
 
-            # check array sent_buffer till current_sent and resend lost packets
-            for i in range(current_sent):
-                if not sent_buffer[i]:
-                    print(f" --> Resending packet: {i}")
-                    time.sleep(0.2)
-                    time_elapsed += time_unit
-                    print(f"✅ ACK received for packet: {i}")
-                    order_received.append(i)
-                    sent_buffer[i] = True
-                    received_buffer[i] = True
+            for i, ack in enumerate(ack_received):
+                ack_status = "Received ✅" if ack == '✅' else "Lost ❌"
+                print(f"Receiver: {ack_status} ACK for packet {ack_range_start + i}")
 
-        print("\n🕔 Total time taken: ", time_elapsed)
+                if ack == '✅':
+                    received_ack.add(ack_range_start + i)
+            print("\n")
+
+
+            # Check for missing ACKs and resend missing packets
+            missing_packets = [i for i in range(ack_range_start, ack_range_end) if i not in received_ack]
+
+            while missing_packets:
+                for packet in missing_packets:
+                    print(f"Sender: Resending packet {packet} --> {data[packet]}")
+
+                # Simulate receiving acknowledgments for resent packets
+                ack_received = [random.choice(['✅', '❌']) for _ in missing_packets]
+                print("\n")
+
+
+                for i, ack in enumerate(ack_received):
+                    ack_status = "Received ✅" if ack == '✅' else "Lost ❌"
+                    print(f"Receiver: {ack_status} ACK for resent packet {missing_packets[i]}")
+
+                    if ack == '✅':
+                        received_ack.add(missing_packets[i])
+
+                # Check for missing ACKs after resending
+                missing_packets = [i for i in missing_packets if i not in received_ack]
+                print("\n")
+
+            next_seq_num = ack_range_end
 
 
 
     def menu(self):
+        
         while True:
             print("\nSelect a protocol:")
             print("1. Stop-and-Wait ARQ")
@@ -157,7 +153,7 @@ class NoisyChannelSimulation:
             elif choice == 2:
                 self.simulate_go_back_n()
             elif choice == 3:
-                self.simulate_selective_repeat()
+                self.selective_repeat()
             elif choice == 4:
                 break
             else:
